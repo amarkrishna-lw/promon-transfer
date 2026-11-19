@@ -1,0 +1,165 @@
+diff -ruN -x '*.pyc' orig/html/dashboard.php /home/claude/promon-site/html/dashboard.php
+--- a/html/dashboard.php	2026-10-28 10:14:57.000000000 -0400
++++ b/html/dashboard.php	2026-11-19 10:24:08.210072084 -0500
+@@ -105,7 +105,7 @@
+ <header class="top">
+   <h1>ProMon Tracker</h1>
+   <?php if ($hasBoard): ?><a class="btn primary" href="./?tech=<?php echo h($myTech); ?>">My board</a><?php endif; ?>
+-  <a class="btn" href="home.php">Team overview</a><a class="btn" href="reports.php">Reports</a><a class="btn" href="inventory.php">Inventory</a><a class="btn" href="reboots.php"<?php echo reboots_nav_attrs(); ?>>System reboots</a><a class="btn" href="serverweight.php"<?php echo serverweight_nav_attrs(); ?>>MA server weight</a>
++  <a class="btn" href="home.php">Team overview</a><a class="btn" href="reports.php">Reports</a><a class="btn" href="inventory.php">Inventory</a><a class="btn" href="reboots.php"<?php echo reboots_nav_attrs(); ?>>System reboots</a><a class="btn" href="serverweight.php"<?php echo serverweight_nav_attrs(); ?>>MA server weight</a><?php echo sroconsole_btn(); ?>
+   <?php echo ui_theme_switch(); ?>
+   <?php if ($authed): ?><a class="btn" href="logout.php">Sign out</a><?php else: ?><a class="btn" href="login.php">Sign in</a><?php endif; ?>
+ </header>
+diff -ruN -x '*.pyc' orig/html/home.php /home/claude/promon-site/html/home.php
+--- a/html/home.php	2026-10-28 10:14:57.000000000 -0400
++++ b/html/home.php	2026-11-19 10:24:08.210192049 -0500
+@@ -47,7 +47,7 @@
+   <a class="btn" href="dashboard.php">Home</a>
+   <a class="btn" href="inventory.php">Inventory</a>
+   <a class="btn" href="reboots.php"<?php echo reboots_nav_attrs(); ?>>System reboots</a>
+-  <a class="btn" href="serverweight.php"<?php echo serverweight_nav_attrs(); ?>>MA server weight</a>
++  <a class="btn" href="serverweight.php"<?php echo serverweight_nav_attrs(); ?>>MA server weight</a><?php echo sroconsole_btn(); ?>
+   <?php echo ui_theme_switch(); ?>
+   <?php if ($authed && !empty($me['manager'])): ?><?php elseif ($authed): ?><a class="btn" href="./?tech=<?php echo h(!empty($me['tech']) ? $me['tech'] : default_tech()); ?>">My board</a><?php else: ?><a class="btn" href="login.php">Sign in</a><?php endif; ?>
+ </header>
+diff -ruN -x '*.pyc' orig/html/index.php /home/claude/promon-site/html/index.php
+--- a/html/index.php	2026-10-28 10:14:57.000000000 -0400
++++ b/html/index.php	2026-11-19 10:24:08.212242085 -0500
+@@ -33,7 +33,7 @@
+ $html = file_get_contents(PROMON_APP . '/app.html');
+ $boot = '<script>window.TRACKER_API=' . json_encode(array(
+     'base' => 'api.php', 'csrf' => $_SESSION['csrf'], 'user' => $me['user'], 'role' => $me['role'], 'authenticated' => $authed,
+-    'tech' => $tech, 'techName' => $reg[$tech]['name'], 'teams' => $teams, 'isAdmin' => $authed && empty($me['tech']), 'canSeeOverview' => $authed && $me['role'] === 'editor', 'rebootsEmbed' => (bool) cfg('reboots_embed'), 'serverweightEmbed' => (bool) cfg('serverweight_embed'),
++    'tech' => $tech, 'techName' => $reg[$tech]['name'], 'teams' => $teams, 'isAdmin' => $authed && empty($me['tech']), 'canSeeOverview' => $authed && $me['role'] === 'editor', 'rebootsEmbed' => (bool) cfg('reboots_embed'), 'serverweightEmbed' => (bool) cfg('serverweight_embed'), 'sroConsoleUrl' => sroconsole_url(),
+     'keyWarn' => (bool) array_filter($problems, function ($p) { return strpos($p[0], 'Service account') === 0; }),
+ ), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ';</script>';
+ header('Content-Type: text/html; charset=utf-8');
+diff -ruN -x '*.pyc' orig/html/inventory.php /home/claude/promon-site/html/inventory.php
+--- a/html/inventory.php	2026-10-28 10:14:57.000000000 -0400
++++ b/html/inventory.php	2026-11-19 10:24:08.210271894 -0500
+@@ -57,7 +57,7 @@
+   <a class="btn" href="home.php">Team overview</a>
+   <a class="btn" href="reports.php">Reports</a>
+   <a class="btn" href="reboots.php"<?php echo reboots_nav_attrs(); ?>>System reboots</a>
+-  <a class="btn" href="serverweight.php"<?php echo serverweight_nav_attrs(); ?>>MA server weight</a>
++  <a class="btn" href="serverweight.php"<?php echo serverweight_nav_attrs(); ?>>MA server weight</a><?php echo sroconsole_btn(); ?>
+   <?php if ($hasBoard): ?><a class="btn" href="./?tech=<?php echo h($myTech); ?>">My board</a><?php endif; ?>
+   <?php echo ui_theme_switch(); ?>
+   <?php if ($authed): ?><a class="btn" href="logout.php">Sign out</a><?php else: ?><a class="btn" href="login.php">Sign in</a><?php endif; ?>
+diff -ruN -x '*.pyc' orig/html/reboots.php /home/claude/promon-site/html/reboots.php
+--- a/html/reboots.php	2026-10-28 10:14:57.000000000 -0400
++++ b/html/reboots.php	2026-11-19 10:24:08.210340173 -0500
+@@ -59,7 +59,7 @@
+   <a class="btn" href="home.php">Team overview</a>
+   <a class="btn" href="reports.php">Reports</a>
+   <a class="btn" href="inventory.php">Inventory</a>
+-  <a class="btn" href="serverweight.php"<?php echo serverweight_nav_attrs(); ?>>MA server weight</a>
++  <a class="btn" href="serverweight.php"<?php echo serverweight_nav_attrs(); ?>>MA server weight</a><?php echo sroconsole_btn(); ?>
+   <?php if ($hasBoard): ?><a class="btn" href="./?tech=<?php echo h($myTech); ?>">My board</a><?php endif; ?>
+   <?php echo ui_theme_switch(); ?>
+   <?php if ($authed): ?><a class="btn" href="logout.php">Sign out</a><?php else: ?><a class="btn" href="login.php">Sign in</a><?php endif; ?>
+diff -ruN -x '*.pyc' orig/html/reports.php /home/claude/promon-site/html/reports.php
+--- a/html/reports.php	2026-10-28 10:14:57.000000000 -0400
++++ b/html/reports.php	2026-11-19 10:24:08.212067472 -0500
+@@ -313,7 +313,7 @@
+ <h1><?php echo $titleKind; ?> Report &mdash; <?php echo $v['title']; ?><?php echo $v['partial'] ? ' (so far)' : ''; ?></h1>
+ <p class="sub"><?php if ($v['partial']): ?><?php echo $k === 'day' ? 'Today is still in progress' : ($k === 'week' ? 'Partial week' : 'Partial month'); ?>, figures keep changing. <?php endif; ?>Compared against <?php echo $v['prevTitle']; ?>. Each case is counted in the <?php echo $w; ?> it was taken (added to the tracker) and stays there when it is resolved later, so remediated is always part of logged. All figures pulled directly from the technician sheets.</p>
+ <div class="fresh">Data last synced <b><?php echo h(stamp($health['newestOkAt'])); ?></b> &middot; report refreshed <b><?php echo h(stamp($now)); ?></b><?php $swl = $v['serverWeight']['latest']; if ($swl && $now - $swl > 86400000): $lg = (int) floor(($now - $swl) / 86400000); ?> &middot; <span class="warn">ServerWeight feed ends <?php echo h(stamp($swl)); ?> (<?php echo $lg; ?> days behind)</span><?php endif; ?><?php if (!$health['allCurrent']): ?> &middot; <span class="warn"><?php echo $health['staleCount']; ?> of <?php echo $health['nTechs']; ?> technician sheets not synced in the last 45 minutes<?php echo $health['failedCount'] ? ' (' . $health['failedCount'] . ' failing)' : ''; ?></span><?php endif; ?></div>
+-<div class="nav"><?php if ($onVpn): ?><a href="dashboard.php">Home</a><a href="home.php">Team overview</a><?php endif; ?><a href="reports.php" class="active" aria-current="page">Reports</a><?php if ($onVpn): ?><a href="inventory.php">Inventory</a><a href="reboots.php"<?php echo reboots_nav_attrs(); ?>>System reboots</a><a href="serverweight.php"<?php echo serverweight_nav_attrs(); ?>>MA server weight</a><?php endif; ?><?php echo ui_theme_switch('link'); ?><?php if ($authed): ?><a href="logout.php">Sign out</a><?php elseif ($onVpn || cfg('offvpn_reports')): ?><a href="login.php">Sign in</a><?php endif; ?><?php if ($vw): ?><span style="margin-left:auto;align-self:center;font-size:12.5px;color:var(--text-soft);">Viewing as <?php echo h($vw['name']); ?></span><?php endif; ?></div>
++<div class="nav"><?php if ($onVpn): ?><a href="dashboard.php">Home</a><a href="home.php">Team overview</a><?php endif; ?><a href="reports.php" class="active" aria-current="page">Reports</a><?php if ($onVpn): ?><a href="inventory.php">Inventory</a><a href="reboots.php"<?php echo reboots_nav_attrs(); ?>>System reboots</a><a href="serverweight.php"<?php echo serverweight_nav_attrs(); ?>>MA server weight</a><?php echo sroconsole_btn(''); ?><?php endif; ?><?php echo ui_theme_switch('link'); ?><?php if ($authed): ?><a href="logout.php">Sign out</a><?php elseif ($onVpn || cfg('offvpn_reports')): ?><a href="login.php">Sign in</a><?php endif; ?><?php if ($vw): ?><span style="margin-left:auto;align-self:center;font-size:12.5px;color:var(--text-soft);">Viewing as <?php echo h($vw['name']); ?></span><?php endif; ?></div>
+ </header>
+ <main>
+ <?php if ($k !== 'month'): ?>
+diff -ruN -x '*.pyc' orig/html/serverweight.php /home/claude/promon-site/html/serverweight.php
+--- a/html/serverweight.php	2026-10-28 10:14:47.000000000 -0400
++++ b/html/serverweight.php	2026-11-19 10:24:28.941656420 -0500
+@@ -60,6 +60,7 @@
+   <a class="btn" href="reports.php">Reports</a>
+   <a class="btn" href="inventory.php">Inventory</a>
+   <a class="btn" href="reboots.php"<?php echo reboots_nav_attrs(); ?>>System reboots</a>
++  <?php echo sroconsole_btn(); ?>
+   <?php if ($hasBoard): ?><a class="btn" href="./?tech=<?php echo h($myTech); ?>">My board</a><?php endif; ?>
+   <?php echo ui_theme_switch(); ?>
+   <?php if ($authed): ?><a class="btn" href="logout.php">Sign out</a><?php else: ?><a class="btn" href="login.php">Sign in</a><?php endif; ?>
+diff -ruN -x '*.pyc' orig/promon-app/app.html /home/claude/promon-site/promon-app/app.html
+--- a/promon-app/app.html	2026-10-28 10:14:57.000000000 -0400
++++ b/promon-app/app.html	2026-11-19 10:24:08.212452911 -0500
+@@ -496,7 +496,7 @@
+   const h1=document.querySelector("header.top h1");
+   if(h1&&T.techName) h1.textContent=T.techName+"\u2019s ProMon Tracker";
+   buildTechSwitcher(T);
+-  [["dashboard.php","Dashboard"],["home.php","Team overview"],["reports.php","Reports"],["inventory.php","Inventory"],["reboots.php","System reboots",!T.rebootsEmbed],["serverweight.php","MA server weight",!T.serverweightEmbed]].forEach(([href,label,newTab])=>{
++  [["dashboard.php","Dashboard"],["home.php","Team overview"],["reports.php","Reports"],["inventory.php","Inventory"],["reboots.php","System reboots",!T.rebootsEmbed],["serverweight.php","MA server weight",!T.serverweightEmbed]].concat(T.sroConsoleUrl?[[T.sroConsoleUrl,"SRO Console",true]]:[]).forEach(([href,label,newTab])=>{
+     const a=document.createElement("a");a.href=href;a.textContent=label;if(newTab){a.target="_blank";a.rel="noopener"}
+     a.className="btn sm";a.style.textDecoration="none";
+     document.querySelector("header.top .actions").appendChild(a);
+diff -ruN -x '*.pyc' orig/promon-app/config.sample.php /home/claude/promon-site/promon-app/config.sample.php
+--- a/promon-app/config.sample.php	2026-10-29 06:55:04.000000000 -0400
++++ b/promon-app/config.sample.php	2026-11-19 10:24:28.941845356 -0500
+@@ -65,6 +65,9 @@
+     // System reboots button shows the dashboard inside the site instead of opening a new tab.
+     // 'reboots_embed' => true,
+ 
++    // The SRO Operations Console (a Claude artifact): a button beside MA server weight that opens it in a new tab.
++    // Only https://claude.ai/artifact/<id> is accepted; leave it empty ('') to hide the button.
++    'sroconsole_url' => 'https://claude.ai/artifact/4rAPbhG9DzCvdbGgQ316t8',
+     // The Grafana "MA Server Weight" dashboard behind the MA server weight button, set up exactly like System reboots above:
+     // it opens in its own tab, or inside the site once serverweight_embed is true (the same Grafana setting allows both).
+     // 'serverweight_url' => 'https://insight.us-midwest-1.nexcess.net/d/fc0397d9-85b5-466a-9f6b-e1cd9d0adc49/ma-server-weight',
+diff -ruN -x '*.pyc' orig/promon-app/lib.php /home/claude/promon-site/promon-app/lib.php
+--- a/promon-app/lib.php	2026-10-29 06:57:43.000000000 -0400
++++ b/promon-app/lib.php	2026-11-19 10:24:08.209536149 -0500
+@@ -63,6 +63,8 @@
+             'serverweight_url' => 'https://insight.us-midwest-1.nexcess.net/d/fc0397d9-85b5-466a-9f6b-e1cd9d0adc49/ma-server-weight',
+             'serverweight_vars' => '',        // any dashboard variables to preset, e.g. 'var-zone=$__all' (letters, digits and _ = & $ . % - only)
+             'serverweight_embed' => false,    // true once the Grafana admins allow embedding
++            // SRO Operations Console (a Claude artifact): a button beside MA server weight that opens it in its own tab. Empty = no button.
++            'sroconsole_url' => 'https://claude.ai/artifact/4rAPbhG9DzCvdbGgQ316t8',
+             'slack_max_per_sync' => 4, 'slack_recheck_hours' => 12, 'slack_resolved_days' => 14, // see config.sample.php
+         );
+         date_default_timezone_set($c['timezone']);
+@@ -232,6 +234,15 @@
+     return $e['url'] . '?orgId=1&from=now-' . $range . '&to=now&timezone=browser' . ($vars !== '' ? '&' . $vars : '') . ($kiosk ? '&kiosk' : '');
+ }
+ function serverweight_nav_attrs() { return cfg('serverweight_embed') ? '' : ' target="_blank" rel="noopener"'; }
++// The SRO Operations Console button: only a plain https address on claude.ai (or none), so a mistyped setting can never point the button somewhere odd.
++function sroconsole_url() {
++    $u = trim((string) cfg('sroconsole_url'));
++    return preg_match('#^https://claude\.ai/artifact/[A-Za-z0-9_-]+$#', $u) ? $u : '';
++}
++function sroconsole_btn($cls = ' class="btn"') {
++    $u = sroconsole_url();
++    return $u === '' ? '' : '<a' . $cls . ' href="' . htmlspecialchars($u, ENT_QUOTES) . '" target="_blank" rel="noopener noreferrer">SRO Console</a>';
++}
+ function dashboard_owner_name($slug) {
+     $reg = team_registry();
+     $alias = array();
+diff -ruN -x '*.pyc' orig/promon-app/tests/run.php /home/claude/promon-site/promon-app/tests/run.php
+--- a/promon-app/tests/run.php	2026-10-29 06:57:34.000000000 -0400
++++ b/promon-app/tests/run.php	2026-11-19 10:24:42.052612680 -0500
+@@ -1667,6 +1667,25 @@
+ $o36 = shell_exec('PROMON_APP=' . escapeshellarg($pe36) . ' ' . escapeshellarg(PHP_BINARY) . ' -r ' . escapeshellarg('require getenv("PROMON_APP") . "/lib.php"; $f = former_members(); echo json_encode(array($f["x-one"]["team"], $f["x-two"]["team"], $f["x-three"]["team"], isset($f["gabriel-pearson"]), isset($f["pratap-avathi"])));'));
+ check('config.php can list the next person who leaves, with their team (a valid team is kept, an invalid or missing one is ignored); the built-in entries stay', trim((string) $o36) === '["vipoint","","",true,true]');
+ 
++/* ======================================================================================================== */
++group('37. SRO Console button (Claude artifact)');
++$btnWant = 'href="https://claude.ai/artifact/4rAPbhG9DzCvdbGgQ316t8" target="_blank" rel="noopener noreferrer">SRO Console</a>';
++$emb = array('reboots_embed' => true, 'serverweight_embed' => true);   // Reboots and MA server weight only render a page (instead of redirecting to Grafana) when embedding is on
++$appSro = sw_app($emb); $appNone = sw_app($emb + array('sroconsole_url' => '')); $appBad = sw_app($emb + array('sroconsole_url' => 'http://claude.ai/artifact/abc')); $appEvil = sw_app($emb + array('sroconsole_url' => 'https://claude.ai.evil.example/artifact/abc'));
++$sroOn = array(); $sroOff = array(); $sroBad = array();
++foreach (array('dashboard.php', 'home.php', 'inventory.php', 'reports.php', 'reboots.php', 'serverweight.php') as $f) {
++    list($o) = render_code(dirname(__DIR__, 2) . '/html/' . $f, $appSro, array()); if (strpos($o, $btnWant) !== false) $sroOn[] = $f;
++    list($o) = render_code(dirname(__DIR__, 2) . '/html/' . $f, $appNone, array()); if (strpos($o, 'SRO Console') === false) $sroOff[] = $f;
++    list($o) = render_code(dirname(__DIR__, 2) . '/html/' . $f, $appBad, array()); list($o2) = render_code(dirname(__DIR__, 2) . '/html/' . $f, $appEvil, array());
++    if (strpos($o, 'SRO Console') === false && strpos($o2, 'SRO Console') === false) $sroBad[] = $f;
++}
++check('THE BUTTON "SRO Console" is on Dashboard, Team overview, Inventory, Reports, Reboots and MA server weight, opening the artifact in a new tab', count($sroOn) === 6);
++check('...an empty setting hides it everywhere', count($sroOff) === 6);
++check('...and a mistyped address (http, or another host dressed up as claude.ai) never produces a button', count($sroBad) === 6);
++list($bs) = render_code(dirname(__DIR__, 2) . '/html/index.php', $appSro, array('tech' => 'clinda-rose')); list($bn) = render_code(dirname(__DIR__, 2) . '/html/index.php', $appNone, array('tech' => 'clinda-rose'));
++check('THE BOARD gets the button too: its page hands the script the address (or an empty one) and the script opens it in a new tab', strpos($bs, '"sroConsoleUrl":"https:\/\/claude.ai\/artifact\/4rAPbhG9DzCvdbGgQ316t8"') !== false && strpos($bn, '"sroConsoleUrl":""') !== false && strpos(file_get_contents(__DIR__ . '/../app.html'), '[[T.sroConsoleUrl,"SRO Console",true]]') !== false);
++check('the sample config documents the setting', strpos(file_get_contents(__DIR__ . '/../config.sample.php'), "sroconsole_url") !== false);
++
+ echo "\n----------------------------------------\n";
+ printf("%d passed, %d failed  (timezone %s)\n", $PASS, $FAIL, cfg('timezone'));
+ exit($FAIL ? 1 : 0);
