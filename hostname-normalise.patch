@@ -1,0 +1,79 @@
+diff -ruN /tmp/base_sro/promon-app/lib.php promon-app/lib.php
+--- /tmp/base_sro/promon-app/lib.php	2026-11-26 11:28:42.079710591 -0500
++++ promon-app/lib.php	2026-11-26 11:30:30.178048418 -0500
+@@ -1095,6 +1095,14 @@
+     if (!$any || find_header($rows, 'hostname') >= 0) return null;
+     return 'the tab "' . $tab . '" has content but no header row, so none of it can be read. Row 1 must be the column headings (Date, Date First Flagged, Time First Flagged, Hostname / UID, Issue Type, ... Status ...): copy the "New Tech 4" template tab';
+ }
++/* The Salesforce sync sometimes writes the whole case subject ("Server Health Check <host> High Serverweight") into the Hostname cell.
++   The site matches rows by hostname, so the long form and the plain host a tech retypes would be two different incidents (double-counted cases).
++   Reduce the long form to the plain hostname; anything else is returned unchanged. */
++function tracker_host_name($h) {
++    $h = trim((string) $h);
++    if (preg_match('/^server\s+health\s*check\s*[:\-]?\s*(\S+)/i', $h, $m)) return $m[1];
++    return $h;
++}
+ function parse_tracker($rows) {
+     $hr = find_header($rows, 'hostname'); if ($hr < 0) return array();
+     $hdr = $rows[$hr];
+@@ -1105,6 +1113,7 @@
+         $hc = cell($row, $C['host']);
+         if ($hc === '' || stripos($hc, 'hostname') === 0) continue;
+         $parts = array_map('trim', explode('|', $hc));
++        $parts[0] = tracker_host_name($parts[0]);
+         if (strcasecmp($parts[0], 'example-host.customer.com') === 0) continue;   // the example row that ships in the "New Tech 4" template tab is not a case
+         $flag = trim(norm_date(cell($row, $C['flagD'])) . ' ' . norm_time(cell($row, $C['flagT'])));
+         $res = trim(norm_date(cell($row, $C['resD'])) . ' ' . norm_time(cell($row, $C['resT'])));
+diff -ruN /tmp/base_sro/promon-app/tests/run.php promon-app/tests/run.php
+--- /tmp/base_sro/promon-app/tests/run.php	2026-11-26 11:28:42.080069270 -0500
++++ promon-app/tests/run.php	2026-11-26 11:30:30.179063364 -0500
+@@ -1686,6 +1686,22 @@
+ check('THE BOARD gets the button too: its page hands the script the address (or an empty one) and the script opens it in a new tab', strpos($bs, '"sroConsoleUrl":"https:\/\/claude.ai\/artifact\/4rAPbhG9DzCvdbGgQ316t8"') !== false && strpos($bn, '"sroConsoleUrl":""') !== false && strpos(file_get_contents(__DIR__ . '/../app.html'), '[[T.sroConsoleUrl,"SRO Console",true]]') !== false);
+ check('the sample config documents the setting', strpos(file_get_contents(__DIR__ . '/../config.sample.php'), "sroconsole_url") !== false);
+ 
++/* ======================================================================================================== */
++group('38. Salesforce subject written into the Hostname cell');
++check('long form reduces to the plain host', tracker_host_name('Server Health Check web12.example.com High Serverweight') === 'web12.example.com');
++check('...case and spacing do not matter', tracker_host_name('  server  health check   web12.example.com ') === 'web12.example.com');
++check('...a plain host, a host with a uid and an empty cell are unchanged', tracker_host_name('web12.example.com') === 'web12.example.com' && tracker_host_name('') === '' && tracker_host_name('Serverhealth.example.com') === 'Serverhealth.example.com');
++$hdr38 = array('Hostname','Issue Type','Case Type','Status');
++$p38 = parse_tracker(array($hdr38, array('Server Health Check web12.example.com High Serverweight | ABC123', 'x', 'y', 'Open'), array('web13.example.com | DEF456', 'x', 'y', 'Open'), array('Server Health Check web14.example.com High Serverweight', 'x', 'y', 'Open')));
++check('parse_tracker gives the plain host and keeps the | uid', count($p38) === 3 && $p38[0]['host'] === 'web12.example.com' && $p38[0]['uid'] === 'ABC123' && $p38[1]['host'] === 'web13.example.com' && $p38[1]['uid'] === 'DEF456' && $p38[2]['host'] === 'web14.example.com' && $p38[2]['uid'] === '');
++$a38 = array(); $c38 = array();
++apply_tracker($a38, parse_tracker(array($hdr38, array('Server Health Check web14.example.com High Serverweight', 'x', 'y', 'Open'))), $c38);
++$n1 = count($a38);
++apply_tracker($a38, parse_tracker(array($hdr38, array('web14.example.com', 'x', 'y', 'Open'))), $c38);
++check('the sync writes the long form, the tech retypes the plain host: ONE incident, not two', $n1 === 1 && count($a38) === 1);
++$h38 = array(); foreach ($a38 as $i) $h38[] = $i['host'];
++check('...and its host is the plain hostname', $h38 === array('web14.example.com'));
++
+ echo "\n----------------------------------------\n";
+ printf("%d passed, %d failed  (timezone %s)\n", $PASS, $FAIL, cfg('timezone'));
+ exit($FAIL ? 1 : 0);
+diff -ruN /tmp/base_sro/promon-app/tools/doubled_cases.php promon-app/tools/doubled_cases.php
+--- /tmp/base_sro/promon-app/tools/doubled_cases.php	1969-12-31 19:00:00.000000000 -0500
++++ promon-app/tools/doubled_cases.php	2026-11-26 11:30:44.649743844 -0500
+@@ -0,0 +1,23 @@
++<?php
++// READ-ONLY. Finds incidents created from a Hostname cell that held the Salesforce subject ("Server Health Check <host> ...")
++// and shows whether a second incident exists for the plain host (a double count).
++//   php tools/doubled_cases.php            all technicians
++//   php tools/doubled_cases.php <slug>     one technician
++if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
++require __DIR__ . '/../lib.php';
++date_default_timezone_set(cfg('timezone'));
++$slugs = isset($argv[1]) ? array($argv[1]) : array_keys(team_registry());
++$tot = 0; $dbl = 0;
++foreach ($slugs as $slug) {
++    if (!isset(team_registry()[$slug])) { fwrite(STDERR, "Unknown slug $slug\n"); exit(1); }
++    $all = all_incidents($slug);
++    foreach ($all as $id => $inc) {
++        $h = isset($inc['host']) ? (string) $inc['host'] : '';
++        if (!preg_match('/^server\s+health\s*check/i', $h)) continue;
++        $plain = tracker_host_name($h); $twins = array();
++        foreach ($all as $id2 => $o) if ($id2 !== $id && strcasecmp(host_only($o), $plain) === 0) $twins[] = $id2;
++        $tot++; if ($twins) $dbl++;
++        printf("%-18s %-34s status=%-10s %s\n   host stored: %s\n   plain host:  %s  twin incidents: %s\n", $slug, $id, isset($inc['status']) ? $inc['status'] : '?', $twins ? 'DOUBLED' : 'no twin', $h, $plain, $twins ? implode(', ', $twins) : '-');
++    }
++}
++printf("\n%d incident(s) with the subject in the host, %d with a twin for the plain host. Nothing was changed.\n", $tot, $dbl);
